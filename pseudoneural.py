@@ -20,7 +20,7 @@ class MyModel(nn.Module):
         prev_size = BITS
         for size in layers:
             linear = nn.Linear(prev_size, size)
-            nn.init.kaiming_normal_(linear.weight, nonlinearity='linear')
+            nn.init.xavier_normal_(linear.weight)
             nn.init.zeros_(linear.bias)
             modules.append(linear)
             modules.append(nn.GELU())
@@ -29,7 +29,7 @@ class MyModel(nn.Module):
             prev_size = size
 
         linear = nn.Linear(prev_size, BITS, bias=False)
-        nn.init.kaiming_normal_(linear.weight, nonlinearity='linear')
+        nn.init.xavier_normal_(linear.weight)
 
         modules.append(linear)
 
