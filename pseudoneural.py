@@ -28,7 +28,6 @@ class MyModel(nn.Module):
 
             prev_size = size
 
-            
         linear = nn.Linear(prev_size, BITS, bias=False)
         nn.init.kaiming_normal_(linear.weight, nonlinearity='linear')
 
@@ -46,7 +45,7 @@ def binarization(numba):
     return [int(bit) for bit in bin(numba)[2:].zfill(BITS)]
 
 model = MyModel([64, 64])
-optimizer = torch.optim.AdamW(model.parameters(), lr=1e-2)
+optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
 loss_fn = nn.L1Loss()
 
 N = 10
