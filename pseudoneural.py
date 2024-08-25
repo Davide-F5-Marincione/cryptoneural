@@ -23,7 +23,7 @@ class MyModel(nn.Module):
             nn.LeakyReLU(.1),
             nn.Linear(2*bits, 2*bits),
             nn.LeakyReLU(.1),
-            nn.Linear(2*bits, bits)
+            nn.Linear(2*bits, bits, bias=False)
         )
 
         nn.init.kaiming_normal_(self.module[0].weight, mode="fan_out", a=.1, nonlinearity='leaky_relu')
@@ -31,7 +31,7 @@ class MyModel(nn.Module):
         nn.init.xavier_normal_(self.module[4].weight)
         nn.init.zeros_(self.module[0].bias)
         nn.init.zeros_(self.module[2].bias)
-        nn.init.zeros_(self.module[4].bias)
+        # nn.init.zeros_(self.module[4].bias)
 
     def forward(self, x):
         return self.module(x)
