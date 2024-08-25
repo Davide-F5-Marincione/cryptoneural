@@ -54,12 +54,10 @@ def pseudo_random2(i):
     i0= i & 0x000000ff
     i0= i0 ^ k0
     x0= SboxSkipjack[i0]
-    print(i0,x0)
 
     i1= (i & 0x0000ff00) >> 8
     i1= i1 ^ k1
     x1= SboxSkipjack[i1]
-    print(i1,x1)
 
     i2= (i & 0x00ff0000) >> 16
     i2= i2 ^ k2
@@ -114,13 +112,13 @@ N = 10
 C = 101
 BATCH_SIZE = 32
 TRAINING_SEED = 42
-STEPS = 100
+STEPS = 10
 
 random.seed(TRAINING_SEED)
 
 for i in (progressbar:=tqdm.trange(STEPS)):
     x = [random.randint(0, 2**BITS - 1) for _ in range(BATCH_SIZE)]
-    y = [pseudo_random(N, C, numba) for numba in x]
+    y = [pseudo_random2(numba) for numba in x]
 
     x = torch.as_tensor([binarization(numba) for numba in x])
     y = torch.as_tensor([binarization(numba) for numba in y])
