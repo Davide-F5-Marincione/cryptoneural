@@ -13,25 +13,28 @@ def pseudo_random(n, c, i):
 
 
 class MyModel(nn.Module):
-    def __init__(self, bits):
+    def __init__(self, layers):
         super().__init__()
 
-        self.bits = bits
+        modules = []
+        prev_size = BITS
+        for size in layers:
+            linear = nn.Linear(prev_size, size)
+            nn.init.kaiming_normal_(linear.weight, nonlinearity='linear')
+            nn.init.zeros_(linear.bias)
+            modules.append(linear)
+            modules.append(nn.GELU())
+            modules.append(nn.LayerNorm(size))
 
-        self.module = nn.Sequential(
-            nn.Linear(bits, 2*bits),
-            nn.LeakyReLU(.1),
-            nn.Linear(2*bits, 2*bits),
-            nn.LeakyReLU(.1),
-            nn.Linear(2*bits, bits, bias=False)
-        )
+            prev_size = size
 
-        nn.init.kaiming_normal_(self.module[0].weight, mode="fan_out", a=.1, nonlinearity='leaky_relu')
-        nn.init.kaiming_normal_(self.module[0].weight, mode="fan_out", a=.1, nonlinearity='leaky_relu')
-        nn.init.xavier_normal_(self.module[4].weight)
-        nn.init.zeros_(self.module[0].bias)
-        nn.init.zeros_(self.module[2].bias)
-        # nn.init.zeros_(self.module[4].bias)
+            
+        linear = nn.Linear(prev_size, BITS, bias=False)
+        nn.init.kaiming_normal_(linear.weight, nonlinearity='linear')
+
+        modules.append(linear)
+
+        self.module = nn.Sequential(*modules)
 
     def forward(self, x):
         return self.module(x)
@@ -42,15 +45,15 @@ def our_loss1(y_pred, y_true):
 def binarization(numba):
     return [int(bit) for bit in bin(numba)[2:].zfill(BITS)]
 
-model = MyModel(BITS)
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-loss_fn = nn.MSELoss()
+model = MyModel([64, 64])
+optimizer = torch.optim.AdamW(model.parameters(), lr=1e-2)
+loss_fn = nn.L1Loss()
 
 N = 10
 C = 101
 BATCH_SIZE = 32
 TRAINING_SEED = 42
-STEPS = 500
+STEPS = 100
 
 random.seed(TRAINING_SEED)
 
@@ -62,7 +65,7 @@ for i in (progressbar:=tqdm.trange(STEPS)):
     y = torch.as_tensor([binarization(numba) for numba in y])
 
     y_pred = model(x.float())
-    loss = loss_fn(y_pred, (y.float() * 2 - 1))
+    loss = loss_fn(y_pred, (y.float() * 4 - 2))
     optimizer.zero_grad()
     loss.backward()
     optimizer.step()
