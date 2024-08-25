@@ -11,7 +11,7 @@ BITS = 32
 def pseudo_random(n, c, i):
     return ((i<<n)%2**(BITS-1)) + c
 
-def pseudo_random2(i):
+def f(i):
     k0=0b10101010
     k1=0b11110101
     k2=0b01111101
@@ -70,7 +70,12 @@ def pseudo_random2(i):
     #layer di permutazione
     y= (x2<<24) & (x0<<16) & x3<<8 & x1
 
-    return y
+def pseudo_random2(i):
+    y0= f(i)
+    y1= f(y0)
+    y2= f(y1)
+    y3= f(y2)
+    return y3
 
 class MyModel(nn.Module):
     def __init__(self, layers):
