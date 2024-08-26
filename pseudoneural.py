@@ -5,18 +5,18 @@ import torch.nn.functional as F
 import random
 import tqdm
 
+from matplotlib import pyplot as plt
+
+EARLY_STOPPING_THRESH = .9999
 BITS = 32
-
-
-def pseudo_random(n, c, i):
-    return ((i<<n)%2**(BITS-1)) + c
-
-def f(i):
-    k0=0b10101010
-    k1=0b11110101
-    k2=0b01111101
-    k3=0b01100010
-    SboxSkipjack =[
+N = 10
+C = 101
+BATCH_SIZE = 8196
+SEED = 42
+STEPS = 400000
+UPDATE_EVERY = 10
+LOOPS = 2
+S_BOX = np.asarray([
 	0xa3, 0xd7, 0x09, 0x83, 0xf8, 0x48, 0xf6, 0xf4, 
 	0xb3, 0x21, 0x15, 0x78, 0x99, 0xb1, 0xaf, 0xf9, 
 	0xe7, 0x2d, 0x4d, 0x8a, 0xce, 0x4c, 0xca, 0x2e, 
@@ -48,91 +48,150 @@ def f(i):
 	0x08, 0x77, 0x11, 0xbe, 0x92, 0x4f, 0x24, 0xc5, 
 	0x32, 0x36, 0x9d, 0xcf, 0xf3, 0xa6, 0xbb, 0xac, 
 	0x5e, 0x6c, 0xa9, 0x13, 0x57, 0x25, 0xb5, 0xe3, 
-	0xbd, 0xa8, 0x3a, 0x01, 0x05, 0x59, 0x2a, 0x46]
+	0xbd, 0xa8, 0x3a, 0x01, 0x05, 0x59, 0x2a, 0x46], dtype=np.uint8)
 
-    #layer di sostituzione
-    i0= i & 0x000000ff
-    i0= i0 ^ k0
-    x0= SboxSkipjack[i0]
+random.seed(SEED)
+torch.manual_seed(SEED)
+np.random.seed(SEED)
 
-    i1= (i & 0x0000ff00) >> 8
-    i1= i1 ^ k1
-    x1= SboxSkipjack[i1]
+PERMUTATION_LIST = np.random.permutation(BITS)
+PERMUTATION_MATRIX = np.zeros((BITS, BITS), dtype=np.uint8)
 
-    i2= (i & 0x00ff0000) >> 16
-    i2= i2 ^ k2
-    x2= SboxSkipjack[i2]
+for i in range(BITS):
+    PERMUTATION_MATRIX[i, PERMUTATION_LIST[i]] = 1
 
-    i3= (i & 0xff000000) >> 24
-    i3= i3 ^ k3
-    x3= SboxSkipjack[i3]
 
-    #layer di permutazione
-    y= (x2<<24) & (x0<<16) & x3<<8 & x1
+def pseudo_random(i):
+    return ((i<<N)%2**(BITS-1)) + C
+
+def f(i):
+    k0=0b10101010
+    k1=0b11110101
+    k2=0b01111101
+    k3=0b01100010
+    
+    words = np.empty((i.shape[0],4), dtype=np.uint8)
+
+    #S-BOX
+    i0= np.bitwise_and(i,0x000000ff)
+    i0= np.bitwise_xor(i0,k0)
+    words[:, 0]= S_BOX[i0]
+
+    i1= np.right_shift(np.bitwise_and(i, 0x0000ff00),8)
+    i1= np.bitwise_xor(i1,k1)
+    words[:, 1]= S_BOX[i1]
+
+    i2= np.right_shift(np.bitwise_and(i,0x00ff0000),16)
+    i2= np.bitwise_xor(i2,k2)
+    words[:, 2]= S_BOX[i2]
+
+    i3= np.right_shift(np.bitwise_and(i, 0xff000000),24)
+    i3= np.bitwise_xor(i3,k3)
+    words[:, 3]= S_BOX[i3]
+
+    #P-BOX
+    bits = np.unpackbits(words).reshape(-1, BITS) @ PERMUTATION_MATRIX
+    y = np.packbits(bits).view(np.uint32)
+
+    return y
 
 def pseudo_random2(i):
-    y0= f(i)
-    y1= f(y0)
-    y2= f(y1)
-    y3= f(y2)
-    return y3
+    for _ in range(LOOPS):
+        i = f(i)
+    return i
+class ResBlock(nn.Module):
+    def __init__(self, outer_size, inner_size):
+        super().__init__()
+        
+        self.out = nn.Sequential(
+            nn.Linear(outer_size, outer_size),
+            nn.LeakyReLU(.1),
+            nn.BatchNorm1d(outer_size)
+        )
+        
+        nn.init.kaiming_normal_(self.out[0].weight, a=.1, mode="fan_out", nonlinearity="leaky_relu")
+        nn.init.zeros_(self.out[0].bias)
+        nn.init.zeros_(self.out[2].weight)
+        nn.init.zeros_(self.out[2].bias)
+        
+    def forward(self, x):
+        return x + self.out(x)
 
-class MyModel(nn.Module):
-    def __init__(self, layers):
+
+class CryptFuncA(nn.Module):
+    def __init__(self, outer_size, inner_size, n_layers=5):
         super().__init__()
 
-        modules = []
-        prev_size = BITS
-        for size in layers:
-            linear = nn.Linear(prev_size, size)
-            nn.init.xavier_normal_(linear.weight)
-            nn.init.zeros_(linear.bias)
-            modules.append(linear)
-            modules.append(nn.GELU())
-            modules.append(nn.LayerNorm(size))
+        self.in_layer = nn.Linear(BITS, outer_size)
+        nn.init.xavier_normal_(self.in_layer.weight)
+        nn.init.zeros_(self.in_layer.bias)
 
-            prev_size = size
-
-        linear = nn.Linear(prev_size, BITS, bias=False)
-        nn.init.xavier_normal_(linear.weight)
-
-        modules.append(linear)
-
-        self.module = nn.Sequential(*modules)
+        self.layers = nn.Sequential(*[ResBlock(outer_size, inner_size) for _ in range(n_layers)])
+        
+        self.out = nn.Linear(outer_size, BITS, bias=False)
+        nn.init.xavier_normal_(self.out.weight)
 
     def forward(self, x):
-        return self.module(x)
-    
-def our_loss1(y_pred, y_true):
-    return torch.relu(torch.where(y_true <= 0, y_pred, -y_pred)).mean()
+        x = self.in_layer(x)
+        x = self.layers(x)
+        return self.out(x)
+
+
+device = "cuda" if torch.cuda.is_available() else "cpu"
+
+def model_looper(model, x):
+    for _ in range(LOOPS):
+        x = torch.sigmoid(model(x))
+    return x
 
 def binarization(numba):
-    return [int(bit) for bit in bin(numba)[2:].zfill(BITS)]
+    return np.unpackbits(np.asarray([numba], dtype=np.uint32).view(np.uint8))
 
-model = MyModel([64, 64])
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-2)
-loss_fn = nn.L1Loss()
+random.seed(SEED)
+torch.manual_seed(SEED)
+np.random.seed(SEED)
 
-N = 10
-C = 101
-BATCH_SIZE = 32
-TRAINING_SEED = 42
-STEPS = 10
+model = CryptFuncA(1024, 1024, n_layers=10).to(device)
+optimizer = torch.optim.Adam(model.parameters(), lr=4e-3)
+loss_fn = nn.BCEWithLogitsLoss()
 
-random.seed(TRAINING_SEED)
+losses = []
+avg_acc = []
+accuracies = [[] for _ in range(BITS)]
+correct_bits = []
 
-for i in (progressbar:=tqdm.trange(STEPS)):
-    x = [random.randint(0, 2**BITS - 1) for _ in range(BATCH_SIZE)]
-    y = [pseudo_random2(numba) for numba in x]
+scaler = torch.amp.GradScaler(device)
 
-    x = torch.as_tensor([binarization(numba) for numba in x])
-    y = torch.as_tensor([binarization(numba) for numba in y])
+for step_index in (pbar:=tqdm.trange(STEPS)):
+    x = np.random.randint(2**BITS - 1, dtype=np.uint32, size=(BATCH_SIZE,))
+    y = pseudo_random2(x)
 
-    y_pred = model(x.float())
-    loss = loss_fn(y_pred, (y.float() * 4 - 2))
+    x = torch.from_numpy(np.unpackbits(x.view(np.uint8)).reshape(-1, BITS)).to(dtype=torch.float32, device=device)
+    y = torch.from_numpy(np.unpackbits(y.view(np.uint8)).reshape(-1, BITS)).to(dtype=torch.float32, device=device)
+    
+    with torch.autocast(device_type=device, dtype=torch.float16):
+        y_pred = model(x)
+        loss = loss_fn(y_pred.flatten(), y.flatten())
+        
+    scaler.scale(loss).backward()
+    scaler.step(optimizer)
+    scaler.update()
     optimizer.zero_grad()
-    loss.backward()
-    optimizer.step()
 
-    correct_bits = ((y_pred > 0) == (y > 0)).float().mean().item()
-    progressbar.set_description(f"Loss: {loss.item():.3f}, Correct bits: {correct_bits:.3f}")
+    correct_bits.append(((y_pred > 0) == (y > 0)).cpu().float())
+    
+    if step_index % UPDATE_EVERY == 0:
+        correct_bits = torch.cat(correct_bits, 0)
+        
+        for i,v in enumerate(correct_bits.mean(0).tolist()):
+            accuracies[i].append(v)
+            
+        avg_acc.append(correct_bits.mean().item())
+        
+        pbar.set_description(f"Loss: {loss.item():.3f}, Correct bits: {avg_acc[-1]:.3f}", refresh=False)
+        correct_bits = []
+        
+        if avg_acc[-1] > EARLY_STOPPING_THRESH:
+            break
+        
+torch.save(model.state_dict(), "checkpoint.pt")
