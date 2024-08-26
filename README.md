@@ -28,4 +28,7 @@ P.P.S. To define a replicable measure it might be necessary to define fixed netw
 
 
 ## First findings
-The metod work on medium-difficulty sostitution-permutation network with 32bit block
+The metod work on medium-difficulty sostitution-permutation network with 32bit block with three round encryption. The following plots represent two round encryption learning:
+
+![plot](https://github.com/Davide-F5-Marincione/pseudoneural/blob/master/img/exampleImg1.jpeg) 
+![plot](https://github.com/Davide-F5-Marincione/pseudoneural/blob/master/img/exampleImg2.jpeg)
