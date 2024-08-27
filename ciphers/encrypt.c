@@ -1,6 +1,6 @@
 /*COMPILE LIBRARY
  *Linux/Mac
- *gcc -shared -o encrypt.so -fPIC encrypt.c DES.c
+ *gcc -shared -o encrypt.so -fPIC encrypt.c DES.c AES.c
  *Windows MinGW
  *gcc -shared -o miofile.dll -Wl,--out-implib,libmiofile.a miofile.c DES.c
 */
@@ -8,6 +8,7 @@
 #include <stdlib.h>
 #include <stdint.h>
 #include "DES.h"
+#include "AES.h"
 
 
 /*
