@@ -46,7 +46,7 @@ class BasicCrypto:
         self.type = bitmapper[bits]
 
         self.shifts = np.asarray([(nbytes - i - 1) * 8 for i in range(nbytes)], dtype=np.uint8)[None]
-        self.seeds = np.random.randint(0, 256, size=(1, nbytes))
+        self.seeds = np.random.randint(0, 256, size=(1, nbytes), dtype=self.type)
 
         perm_list = np.random.permutation(self.bits)
         self.permutation_matrix = np.zeros((self.bits, self.bits), dtype=np.uint8)
