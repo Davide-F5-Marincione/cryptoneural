@@ -27,6 +27,7 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=42, help="Seed to use")
     parser.add_argument("--device", type=str, default="cpu", help="Device to use")
     parser.add_argument("--threshold",type=float, default=.999, help="Threshold to use for early stopping")
+    parser.add_argument("--ckpt_name", type=str, default="checkpoint.pt", help="Filename for the network's weights")
 
     args = parser.parse_args()
     print(args)
@@ -83,4 +84,4 @@ if __name__ == "__main__":
             if avg_acc[-1] > args.threshold:
                 break
             
-    torch.save(model.state_dict(), "checkpoint.pt")
+    torch.save(model.state_dict(), args.ckpt_name)
