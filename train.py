@@ -36,7 +36,8 @@ if __name__ == "__main__":
     device = "cuda" if args.cuda else "cpu"
 
     if device == "cuda" and not torch.cuda.is_available():
-        raise ValueError("CUDA is not available") 
+        raise ValueError("CUDA is not available")
+
     
     match args.crypto_func:
         case "des":
@@ -47,6 +48,7 @@ if __name__ == "__main__":
             crypt = functions.BasicCrypto(args.depth, args.seed, args.bits)
         case _:
             raise ValueError("Cryptographic function was not correctly defined")
+
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
@@ -98,9 +100,33 @@ if __name__ == "__main__":
     torch.save(model.state_dict(), args.ckpt_name)
 
     if args.plot:
-        plt.figure(figsize=(15, 10))
-        plt.plot(avg_acc, label="bits' accuracy")
-        for i in range(args.bits):
-            plt.plot(accuracies[i], label=f"bit{i:02d}")
-        plt.legend()
+        plt.plot(avg_acc)
+        plt.title("Average accuracy")
         plt.show()
+
+        cmap = plt.get_cmap('rainbow')
+
+        K = 128
+        N = args.bits // 8 * K + args.bits
+
+        colors = cmap(np.linspace(0,1,N))
+
+        fig = plt.figure()
+        ax = plt.subplot(111)
+
+        for i in range(args.bits):
+            ax.plot(accuracies[i], label=f"bit{i:02d}", c=colors[i + K * (i // 8)])
+
+        # Shrink current axis's height by 10% on the bottom
+        box = ax.get_position()
+        ax.set_position([box.x0, box.y0 + box.height * 0.1,
+                        box.width, box.height * 0.9])
+
+        # Put a legend below current axis
+        ax.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05),
+                fancybox=True, shadow=True, ncol=4)
+        plt.title("Bits' accuracies")
+        plt.show()
+
+        print(avg_acc)
+        print(accuracies)
