@@ -38,11 +38,15 @@ if __name__ == "__main__":
     if device == "cuda" and not torch.cuda.is_available():
         raise ValueError("CUDA is not available") 
     
-    if args.crypto_func == "des":
-        print("using DES")
-        crypt = functions.Des(args.depth, args.seed, args.bits)
-    else:
-        crypt = functions.BasicCrypto(args.depth, args.seed, args.bits)
+    match args.crypto_func:
+        case "des":
+            print("using DES")
+            crypt = functions.Des(args.depth, args.seed, args.bits)
+        case "base":
+            print("using base")
+            crypt = functions.BasicCrypto(args.depth, args.seed, args.bits)
+        case _:
+            raise ValueError("Cryptographic function was not correctly defined")
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
