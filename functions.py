@@ -52,7 +52,7 @@ class BasicCrypto:
         self.permutation_matrix = np.zeros((self.bits, self.bits), dtype=np.uint8)
 
         for i in range(self.bits):
-            self.permutation_matrix[i, perm_list[self.bits]] = 1
+            self.permutation_matrix[i, perm_list[i]] = 1
 
     def bloc(self, i):
         #S-BOX
