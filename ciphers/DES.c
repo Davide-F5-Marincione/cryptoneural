@@ -10,6 +10,9 @@
  */
 
 #include "DES.h"
+#include <stdio.h>
+#include <stdlib.h>
+
 
 #define LB32_MASK   0x00000001
 #define LB64_MASK   0x0000000000000001
