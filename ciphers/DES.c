@@ -9,17 +9,7 @@
  * Based on the document FIPS PUB 46-3
  */
 
-/*COMPILE LIBRARY
- *Linux/Mac
- *gcc -shared -o encrypt.so -fPIC encrypt.c
- *Windows MinGW
- *gcc -shared -o miofile.dll -Wl,--out-implib,libmiofile.a miofile.c
-*/
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-
-
+#include "DES.h"
 
 #define LB32_MASK   0x00000001
 #define LB64_MASK   0x0000000000000001
@@ -316,17 +306,8 @@ uint64_t des(uint64_t input, uint64_t key, int rounds) {
     return inv_init_perm_res;
     
 }
-/*
-int main(int argc, const char * argv[]) {
-    
-    uint64_t input = 0xBBB4B8E8C73BCAAA;
-    uint64_t key = 0x0000000000000000;
-    uint64_t result = input;
-    
-    
-    result = des(input, key, 1);
-    printf ("E: %016llx\n", result);
-    
-    exit(0);
-    
-}*/
+
+#undef LB32_MASK 
+#undef LB64_MASK 
+#undef L64_MASK 
+#undef H64_MASK  
