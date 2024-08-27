@@ -12,7 +12,7 @@ if __name__ == "__main__":
         prog="Cryptographic functions parser"
     )
 
-    parser.add_argument("--bits", type=int, default=32, help="Number of bits to use")
+    parser.add_argument("--bits", type=int, default=64, help="Number of bits to use")
     parser.add_argument("--depth", type=int, default=3, help="Number of rounds to use")
 
     parser.add_argument("--n_layers", type=int, default=10, help="Number of layers in the NN to use")
@@ -25,22 +25,29 @@ if __name__ == "__main__":
     parser.add_argument("--steps", type=int, default=30000, help="Number of steps during training")
     parser.add_argument("--update_freq", type=int, default=10, help="How often to update the progress bar")
     parser.add_argument("--seed", type=int, default=42, help="Seed to use")
-    parser.add_argument("--device", type=str, default="cpu", help="Device to use")
+    parser.add_argument("--cuda", action="store_true", help="If use CUDA")
     parser.add_argument("--threshold",type=float, default=.999, help="Threshold to use for early stopping")
     parser.add_argument("--ckpt_name", type=str, default="checkpoint.pt", help="Filename for the network's weights")
+    parser.add_argument("--crypto_func", type=str, default="des", help="Which cryptographic function to use")
+    parser.add_argument("--plot", action="store_true", help="Whether to plot the results")
 
     args = parser.parse_args()
-    print(args)
 
-    if args.device == "cuda" and not torch.cuda.is_available():
+    device = "cuda" if args.cuda else "cpu"
+
+    if device == "cuda" and not torch.cuda.is_available():
         raise ValueError("CUDA is not available") 
     
-    crypt = functions.BasicCrypto(args.depth, args.seed, args.bits)
+    if args.crypto_func == "des":
+        print("using DES")
+        crypt = functions.Des(args.depth, args.seed, args.bits)
+    else:
+        crypt = functions.BasicCrypto(args.depth, args.seed, args.bits)
 
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    model = model.CryptFuncA(args.dim, args.bits, n_layers=args.n_layers).to(args.device)
+    model = model.CryptFuncA(args.dim, args.bits, n_layers=args.n_layers).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     losses = []
@@ -54,8 +61,8 @@ if __name__ == "__main__":
         x = np.random.randint(2**args.bits, dtype=crypt.type, size=(args.batch_size,))
         y = crypt.sample(x)
 
-        x = torch.from_numpy(np.unpackbits(x.view(np.uint8)).reshape(-1, args.bits)).to(dtype=torch.float32, device=args.device)
-        y = torch.from_numpy(np.unpackbits(y.view(np.uint8)).reshape(-1, args.bits)).to(dtype=torch.float32, device=args.device)
+        x = torch.from_numpy(np.unpackbits(x.view(np.uint8)).reshape(-1, args.bits)).to(dtype=torch.float32, device=device)
+        y = torch.from_numpy(np.unpackbits(y.view(np.uint8)).reshape(-1, args.bits)).to(dtype=torch.float32, device=device)
         
         # with torch.autocast(device_type=args.device, dtype=torch.float16):
         y_pred = model(x)
@@ -85,3 +92,11 @@ if __name__ == "__main__":
                 break
             
     torch.save(model.state_dict(), args.ckpt_name)
+
+    if args.plot:
+        plt.figure(figsize=(15, 10))
+        plt.plot(avg_acc, label="bits' accuracy")
+        for i in range(args.bits):
+            plt.plot(accuracies[i], label=f"bit{i:02d}")
+        plt.legend()
+        plt.show()

@@ -1,3 +1,5 @@
 *.so
 *.pt
 __pycache__
+*.dll
+*.a

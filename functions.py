@@ -1,4 +1,6 @@
 import numpy as np
+import ctypes
+import os
 
 bitmapper = {32: np.uint32, 64: np.uint64}
 
@@ -68,4 +70,36 @@ class BasicCrypto:
     def sample(self, i):
         for _ in range(self.depth):
             i = self.bloc(i)
-        return i
+        return i    
+
+class Des:
+    def __init__(self, depth, seed=42, bits=64):
+        if bits != 64:
+            raise ValueError("DES only works with 64 bits")
+        
+        self.depth = depth
+        self.bits = bits
+        self.seed = seed
+
+        # Load the compiled shared library
+        if os.name == "nt":
+            # Windows
+            self.lib = ctypes.CDLL('./encrypt.dll')
+        else:
+            # Linux/MacOS
+            self.lib = ctypes.CDLL('./encrypt.so')
+
+        # Define the function prototype for des
+        self.lib.des.restype = ctypes.c_uint64  # Return type is uint64_t
+        self.lib.des.argtypes = [ctypes.c_uint64, ctypes.c_uint64, ctypes.c_int]  # Argument types
+
+        self.type = np.uint64
+
+    def sample(self, i):
+        return np.asarray([self.lib.des(v, self.seed, self.depth) for v in i], dtype=np.uint64)
+        
+
+if __name__ == "__main__":
+    # Example usage
+    des = Des(1)
+    print(des.sample(np.array([1], dtype=np.uint64)))
