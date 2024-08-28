@@ -430,7 +430,7 @@ char aes_encrypt(unsigned char *input,
                  unsigned char *output,
                  unsigned char *key,
                  int keySize,
-                  int effectiveRounds)
+                 int effectiveRounds)
 {
     // the expanded keySize
     int expandedKeySize;
@@ -473,6 +473,11 @@ char aes_encrypt(unsigned char *input,
         printf("Error in AES.c: len(key) mismatch keySize, %d != %d. \n",len,keySize);
         printf("Error data: key observed= '%s'\n",key);
         exit(-1);
+    }
+    len=0;
+    while(input[len]!='\0'){len++;}
+    if(len!=16){
+        printf("Error in AES.c: block size is not 16 char (128bit). Problem with aes_encrypt unsigned char *input length.\n");
     }
 
     expandedKeySize = (16 * (nbrRounds + 1));
