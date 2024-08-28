@@ -2,10 +2,26 @@ import numpy as np
 import ctypes
 import os
 
-bitmapper = {32: np.uint32, 64: np.uint64}
+# Load the compiled shared library
+if os.name == "nt":
+    # Windows
+    LIB = ctypes.CDLL('./encrypt.dll')
+else:
+    # Linux/MacOS
+    LIB = ctypes.CDLL('./encrypt.so')
+
+# Define the function prototype for des
+LIB.des.restype = ctypes.c_uint64  # Return type is uint64_t
+LIB.des.argtypes = [ctypes.c_uint64, ctypes.c_uint64, ctypes.c_int]  # Argument types
+# Define the keySize enum value for SIZE_16
+SIZE_16 = 16  # Assuming SIZE_16 corresponds to 16 (16, 24 or 32 to decide if 128, 192 or 256bit key)
+
+# Define the function prototype for aes_encrypt
+LIB.aes_encrypt.argtypes = (ctypes.POINTER(ctypes.c_ubyte), ctypes.POINTER(ctypes.c_ubyte), ctypes.POINTER(ctypes.c_ubyte), ctypes.c_int, ctypes.c_int)
+LIB.aes_encrypt.restype = None
 
 class BasicCrypto:
-    def __init__(self, depth, seed=42, bits=32):
+    def __init__(self, rounds, seed=42, nbytes=4):
         self.s_box = np.asarray([
             0xa3, 0xd7, 0x09, 0x83, 0xf8, 0x48, 0xf6, 0xf4, 
             0xb3, 0x21, 0x15, 0x78, 0x99, 0xb1, 0xaf, 0xf9, 
@@ -42,64 +58,84 @@ class BasicCrypto:
         
         np.random.seed(seed)
 
-        nbytes = bits//8
-        self.depth = depth
-        self.bits = bits
-        self.type = bitmapper[bits]
+        self.rounds = rounds
+        self.nbytes = nbytes
 
         self.shifts = np.asarray([(nbytes - i - 1) * 8 for i in range(nbytes)], dtype=np.uint8)[None]
-        self.seeds = np.random.randint(0, 256, size=(1, nbytes), dtype=self.type)
+        self.seeds = np.random.randint(0, 256, size=(1, nbytes), dtype=np.uint8)
 
-        perm_list = np.random.permutation(self.bits)
-        self.permutation_matrix = np.zeros((self.bits, self.bits), dtype=np.uint8)
+        perm_list = np.random.permutation(nbytes * 8)
+        self.permutation_matrix = np.zeros((nbytes * 8,nbytes * 8), dtype=np.uint8)
 
-        for i in range(self.bits):
+        for i in range(nbytes * 8):
             self.permutation_matrix[i, perm_list[i]] = 1
 
-    def bloc(self, i):
+    def round(self, i):
         #S-BOX
-        i = np.bitwise_xor(np.bitwise_and(np.right_shift(i[...,None], self.shifts), 0x000000ff), self.seeds) 
+        i = np.bitwise_xor(i, self.seeds) 
         res = self.s_box[i]
-    
-        #P-BOX
-        bits = np.unpackbits(res).reshape(-1, self.bits) @ self.permutation_matrix
-        y = np.packbits(bits).view(self.type)
 
+        #P-BOX
+        bits = np.unpackbits(res).reshape(i.shape[0], self.nbytes*8) @ self.permutation_matrix
+        y = np.packbits(bits).reshape(i.shape[0], self.nbytes)
         return y
     
     def sample(self, i):
-        for _ in range(self.depth):
-            i = self.bloc(i)
-        return i    
+        for _ in range(self.rounds):
+            i = self.round(i)
+        return i
 
-class Des:
-    def __init__(self, depth, seed=42, bits=64):
-        if bits != 64:
+
+
+class DES:
+    def __init__(self, rounds, seed=42, nbytes=8):
+        if nbytes != 8:
             raise ValueError("DES only works with 64 bits")
         
-        self.depth = depth
-        self.bits = bits
+        self.rounds = rounds
+        self.nbytes = nbytes
         self.seed = seed
 
-        # Load the compiled shared library
-        if os.name == "nt":
-            # Windows
-            self.lib = ctypes.CDLL('./encrypt.dll')
-        else:
-            # Linux/MacOS
-            self.lib = ctypes.CDLL('./encrypt.so')
+    def sample(self, i):
+        return np.asarray([list(LIB.des(v.item(), self.seed, self.rounds).to_bytes(8, "big")) for v in i.view(np.uint64)], dtype=np.uint8)
+    
 
-        # Define the function prototype for des
-        self.lib.des.restype = ctypes.c_uint64  # Return type is uint64_t
-        self.lib.des.argtypes = [ctypes.c_uint64, ctypes.c_uint64, ctypes.c_int]  # Argument types
-
-        self.type = np.uint64
+class AES:
+    def __init__(self, rounds, seed=42, nbytes=16):
+        if nbytes != 16:
+            raise ValueError("AES only works with 128 bits")
+        
+        self.rounds = rounds
+        self.nbytes = nbytes
+        self.seed = seed
+        self.key = (ctypes.c_ubyte * 16)(*self.seed.to_bytes(16, "big"))
 
     def sample(self, i):
-        return np.asarray([self.lib.des(v, self.seed, self.depth) for v in i], dtype=np.uint64)
+        ciphertext = (ctypes.c_ubyte * 16)()
+        res = []
+        for v in i:
+            plaintext = (ctypes.c_ubyte * 16)(*v) 
+            LIB.aes_encrypt(plaintext, ciphertext, self.key, SIZE_16, self.rounds)
+            res.append(ciphertext)
+
+        return np.asarray(res, dtype=np.uint8)
         
 
 if __name__ == "__main__":
     # Example usage
-    des = Des(1)
-    print(des.sample(np.array([1], dtype=np.uint64)))
+
+    toy = BasicCrypto(2, nbytes=4)
+    print(toy.sample(np.array([[1,0,0,0]], dtype=np.uint8)))
+
+    toy = BasicCrypto(2, nbytes=8)
+    print(toy.sample(np.array([[1,0,0,0,0,0,0,0]], dtype=np.uint8)))
+
+    toy = BasicCrypto(2, nbytes=16)
+    print(toy.sample(np.array([[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]], dtype=np.uint8)))
+
+
+    des = DES(2)
+    print(des.sample(np.array([[1,0,0,0,0,0,0,0]], dtype=np.uint8)))
+
+    aes = AES(2)
+    print(aes.sample(np.array([[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]], dtype=np.uint8)))

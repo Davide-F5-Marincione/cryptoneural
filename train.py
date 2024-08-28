@@ -12,8 +12,8 @@ if __name__ == "__main__":
         prog="Cryptographic functions parser"
     )
 
-    parser.add_argument("--bits", type=int, default=64, help="Number of bits to use")
-    parser.add_argument("--depth", type=int, default=3, help="Number of rounds to use")
+    parser.add_argument("--bytes", type=int, default=8, help="Number of bytes to use")
+    parser.add_argument("--rounds", type=int, default=3, help="Number of rounds to use")
 
     parser.add_argument("--n_layers", type=int, default=10, help="Number of layers in the NN to use")
     parser.add_argument("--dim", type=int, default=1024, help="Inner size of the NN to use")
@@ -40,12 +40,15 @@ if __name__ == "__main__":
 
     
     match args.crypto_func:
+        case "aes":
+            print("using AES")
+            crypt = functions.AES(args.rounds, args.seed, args.bytes)
         case "des":
             print("using DES")
-            crypt = functions.Des(args.depth, args.seed, args.bits)
+            crypt = functions.DES(args.rounds, args.seed, args.bytes)
         case "base":
             print("using base")
-            crypt = functions.BasicCrypto(args.depth, args.seed, args.bits)
+            crypt = functions.BasicCrypto(args.rounds, args.seed, args.bytes)
         case _:
             raise ValueError("Cryptographic function was not correctly defined")
 
@@ -53,22 +56,22 @@ if __name__ == "__main__":
     torch.manual_seed(args.seed)
     np.random.seed(args.seed)
 
-    model = model.CryptFuncA(args.dim, args.bits, n_layers=args.n_layers).to(device)
+    model = model.CryptFuncA(args.dim, args.bytes * 8, n_layers=args.n_layers).to(device)
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)
 
     losses = []
     avg_acc = []
-    accuracies = [[] for _ in range(args.bits)]
+    accuracies = [[] for _ in range(args.bytes * 8)]
     correct_bits = []
 
     # scaler = torch.amp.GradScaler(args.device)
 
     for step_index in (pbar:=tqdm.trange(args.steps)):
-        x = np.random.randint(2**args.bits, dtype=crypt.type, size=(args.batch_size,))
+        x = np.random.randint(256, dtype=np.uint8, size=(args.batch_size, crypt.nbytes))
         y = crypt.sample(x)
 
-        x = torch.from_numpy(np.unpackbits(x.view(np.uint8)).reshape(-1, args.bits)).to(dtype=torch.float32, device=device)
-        y = torch.from_numpy(np.unpackbits(y.view(np.uint8)).reshape(-1, args.bits)).to(dtype=torch.float32, device=device)
+        x = torch.from_numpy(np.unpackbits(x).reshape(-1, args.bytes * 8)).to(dtype=torch.float32, device=device)
+        y = torch.from_numpy(np.unpackbits(y).reshape(-1, args.bytes * 8)).to(dtype=torch.float32, device=device)
         
         # with torch.autocast(device_type=args.device, dtype=torch.float16):
         y_pred = model(x)
