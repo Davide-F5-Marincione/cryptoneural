@@ -111,7 +111,7 @@ int main(int argc, char *argv[])
     unsigned char expandedKey[expandedKeySize];
 
     // the cipher key
-    unsigned char key[16] = {'k', 'k', 'k', 'k', 'e', 'e', 'e', 'e', 'y', 'y', 'y', 'y', '.', '.', '.', '.'};
+    unsigned char key[16+1] = {'k', 'k', 'k', 'k', 'e', 'e', 'e', 'e', 'y', 'y', 'y', 'y', '.', '.', '.', '.','\0'};
 
     // the cipher key size
     int size = 16;// 16, 24 or 32
@@ -449,18 +449,30 @@ char aes_encrypt(unsigned char *input,
     // set the number of rounds
     switch (keySize)
     {
-    case 16:
+    case 16://key 128bit
         nbrRounds = 10;
         break;
-    case 24:
+    case 24://is key 192bit
         nbrRounds = 12;
         break;
-    case 32:
+    case 32://is key 256bit
         nbrRounds = 14;
         break;
     default:
-        return ERROR_AES_UNKNOWN_KEYSIZE;
+        printf("Error in AES.c: keySize must be 16, 24 or 32 byte (128, 192, 256 bits). Set keySize parameter correctly\n");
+        return(-1);
         break;
+    }
+    if(effectiveRounds<1 || nbrRounds-effectiveRounds<=0){
+        printf("Error in AES.c: with key size %d you can do at most %d rounds. It is not possible to have %d rounds. Fix the number of effectiveRounds\n",keySize,nbrRounds,effectiveRounds);
+        exit(-1);
+    }
+    int len=0;
+    while(key[len]!='\0'){len++;}
+    if(len!=keySize){
+        printf("Error in AES.c: len(key) mismatch keySize, %d != %d. \n",len,keySize);
+        printf("Error data: key observed= '%s'\n",key);
+        exit(-1);
     }
 
     expandedKeySize = (16 * (nbrRounds + 1));
