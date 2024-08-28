@@ -2,24 +2,6 @@ import numpy as np
 import ctypes
 import os
 
-# Load the compiled shared library
-if os.name == "nt":
-    # Windows
-    LIB = ctypes.CDLL('./encrypt.dll')
-else:
-    # Linux/MacOS
-    LIB = ctypes.CDLL('./encrypt.so')
-
-# Define the function prototype for des
-LIB.des.restype = ctypes.c_uint64  # Return type is uint64_t
-LIB.des.argtypes = [ctypes.c_uint64, ctypes.c_uint64, ctypes.c_int]  # Argument types
-# Define the keySize enum value for SIZE_16
-SIZE_16 = 16  # Assuming SIZE_16 corresponds to 16 (16, 24 or 32 to decide if 128, 192 or 256bit key)
-
-# Define the function prototype for aes_encrypt
-LIB.aes_encrypt.argtypes = (ctypes.POINTER(ctypes.c_ubyte), ctypes.POINTER(ctypes.c_ubyte), ctypes.POINTER(ctypes.c_ubyte), ctypes.c_int, ctypes.c_int)
-LIB.aes_encrypt.restype = None
-
 class BasicCrypto:
     def __init__(self, rounds, seed=42, nbytes=4):
         self.s_box = np.asarray([
@@ -94,28 +76,56 @@ class DES:
         
         self.rounds = rounds
         self.nbytes = nbytes
-        self.seed = seed
+        np.random.seed(seed)
+        self.seed = np.random.randint(0, 2**64, dtype=np.uint64)
+
+        # Load the compiled shared library
+        if os.name == "nt":
+            # Windows
+            self.lib = ctypes.CDLL('./encrypt.dll')
+        else:
+            # Linux/MacOS
+            self.lib = ctypes.CDLL('./encrypt.so')
+
+        # Define the function prototype for des
+        self.lib.des.restype = ctypes.c_uint64  # Return type is uint64_t
+        self.lib.des.argtypes = [ctypes.c_uint64, ctypes.c_uint64, ctypes.c_int]  # Argument types
 
     def sample(self, i):
-        return np.asarray([list(LIB.des(v.item(), self.seed, self.rounds).to_bytes(8, "big")) for v in i.view(np.uint64)], dtype=np.uint8)
+        return np.asarray([list(self.lib.des(v.item(), self.seed, self.rounds).to_bytes(8, "big")) for v in i.view(np.uint64)], dtype=np.uint8)
     
 
 class AES:
-    def __init__(self, rounds, seed=42, nbytes=16):
+    def __init__(self, rounds, seed=42, nbytes=16, keysize=16):
         if nbytes != 16:
             raise ValueError("AES only works with 128 bits")
         
         self.rounds = rounds
         self.nbytes = nbytes
-        self.seed = seed
-        self.key = (ctypes.c_ubyte * 16)(*self.seed.to_bytes(16, "big"))
+        np.random.seed(seed)
+        self.key = (ctypes.c_ubyte * keysize)(*np.random.randint(0, 256, size=keysize, dtype=np.uint8))
+
+        # Load the compiled shared library
+        if os.name == "nt":
+            # Windows
+            self.lib = ctypes.CDLL('./encrypt.dll')
+        else:
+            # Linux/MacOS
+            self.lib = ctypes.CDLL('./encrypt.so')
+
+        # Define the keySize enum value for SIZE_16
+        self.key_size = keysize  # Assuming SIZE_16 corresponds to 16 (16, 24 or 32 to decide if 128, 192 or 256bit key)
+
+        # Define the function prototype for aes_encrypt
+        self.lib.aes_encrypt.argtypes = (ctypes.POINTER(ctypes.c_ubyte), ctypes.POINTER(ctypes.c_ubyte), ctypes.POINTER(ctypes.c_ubyte), ctypes.c_int, ctypes.c_int)
+        self.lib.aes_encrypt.restype = None
 
     def sample(self, i):
         ciphertext = (ctypes.c_ubyte * 16)()
         res = []
         for v in i:
             plaintext = (ctypes.c_ubyte * 16)(*v) 
-            LIB.aes_encrypt(plaintext, ciphertext, self.key, SIZE_16, self.rounds)
+            self.lib.aes_encrypt(plaintext, ciphertext, self.key, self.key_size, self.rounds)
             res.append(ciphertext)
 
         return np.asarray(res, dtype=np.uint8)

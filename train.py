@@ -22,6 +22,7 @@ if __name__ == "__main__":
     parser.add_argument("--batch_size", type=int, default=8192, help="Batch size to use")
     parser.add_argument("--grad_acc", type=int, default=1, help="How many gradients to accumulate before running an optimization step")
     
+    parser.add_argument("--sequential", type=int, default=0, help="Number of bits to use")
     parser.add_argument("--steps", type=int, default=30000, help="Number of steps during training")
     parser.add_argument("--update_freq", type=int, default=10, help="How often to update the progress bar")
     parser.add_argument("--seed", type=int, default=42, help="Seed to use")
@@ -40,9 +41,15 @@ if __name__ == "__main__":
 
     
     match args.crypto_func:
-        case "aes":
-            print("using AES")
-            crypt = functions.AES(args.rounds, args.seed, args.bytes)
+        case "aes128":
+            print("using AES128")
+            crypt = functions.AES(args.rounds, args.seed, args.bytes, 16)
+        case "aes192":
+            print("using AES192")
+            crypt = functions.AES(args.rounds, args.seed, args.bytes, 24)
+        case "aes256":
+            print("using AES256")
+            crypt = functions.AES(args.rounds, args.seed, args.bytes, 32)
         case "des":
             print("using DES")
             crypt = functions.DES(args.rounds, args.seed, args.bytes)
@@ -67,7 +74,15 @@ if __name__ == "__main__":
     # scaler = torch.amp.GradScaler(args.device)
 
     for step_index in (pbar:=tqdm.trange(args.steps)):
-        x = np.random.randint(256, dtype=np.uint8, size=(args.batch_size, crypt.nbytes))
+        if args.sequential > 0:
+            x = np.random.randint(256, dtype=np.uint8, size=(args.batch_size//args.sequential, crypt.nbytes))
+            x = x[:, None].repeat(args.sequential, 1)
+            randtake = np.random.randint(crypt.nbytes, size=(x.shape[0],))
+            x[np.arange(x.shape[0]), :, randtake] += np.arange(args.sequential, dtype=np.uint8)[None]
+            x = x.reshape(-1, crypt.nbytes)
+        else:
+            x = np.random.randint(256, dtype=np.uint8, size=(args.batch_size, crypt.nbytes))
+
         y = crypt.sample(x)
 
         x = torch.from_numpy(np.unpackbits(x).reshape(-1, args.bytes * 8)).to(dtype=torch.float32, device=device)
@@ -110,14 +125,14 @@ if __name__ == "__main__":
         cmap = plt.get_cmap('rainbow')
 
         K = 128
-        N = args.bits // 8 * K + args.bits
+        N = args.bytes * K + args.bytes * 8
 
         colors = cmap(np.linspace(0,1,N))
 
         fig = plt.figure()
         ax = plt.subplot(111)
 
-        for i in range(args.bits):
+        for i in range(args.bytes * 8 ):
             ax.plot(accuracies[i], label=f"bit{i:02d}", c=colors[i + K * (i // 8)])
 
         # Shrink current axis's height by 10% on the bottom
