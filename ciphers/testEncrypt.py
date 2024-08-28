@@ -32,14 +32,14 @@ ciphertext = (ctypes.c_ubyte * 16)()  # Allocate space for the ciphertext output
 
 # Define the keySize enum value for SIZE_16
 SIZE_16 = 16  # Assuming SIZE_16 corresponds to 16 (16, 24 or 32 to decide if 128, 192 or 256bit key)
+effectiveRounds= 2
 
 # Define the function prototype for aes_encrypt
 lib.aes_encrypt.argtypes = (ctypes.POINTER(ctypes.c_ubyte), ctypes.POINTER(ctypes.c_ubyte), ctypes.POINTER(ctypes.c_ubyte), ctypes.c_int, ctypes.c_int)
 lib.aes_encrypt.restype = None
 
 # Call the aes_encrypt function
-lib.aes_encrypt(plaintext, ciphertext, key, SIZE_16, 2)  # The last parameter is assumed to be some mode or rounds, set as 2 for now
+lib.aes_encrypt(plaintext, ciphertext, key, SIZE_16, effectiveRounds)  # The last parameter is assumed to be some mode or rounds, set as 2 for now
 
 # Print the ciphertext in HEX format
-print("Ciphertext (HEX format):")
-print(" ".join(f"{b:02x}" for b in ciphertext))
+print(f"Result of aes_encrypt({bytes(plaintext).decode('utf-8', errors='replace')}, ciphertext variable, {bytes(key).decode('utf-8', errors='replace')}, {SIZE_16}, {effectiveRounds})= 0x"+"".join(f"{b:02x}" for b in ciphertext))
