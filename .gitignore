@@ -1,5 +1,12 @@
+# exclude files without extension (e.g. linux c compiled files)
+*
+!/**/
+!*.*
+*.exe
+#exclude other files
 *.so
 *.pt
 __pycache__
 *.dll
 *.a
+*.tmp
