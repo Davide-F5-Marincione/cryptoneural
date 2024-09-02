@@ -36,7 +36,7 @@ Martin Schläffer*/
   }             
 
 
-int crypto_aead_encrypt(unsigned char* c, unsigned long long* clen,           //ciphertext
+int crypto128_aead_encrypt(unsigned char* c, unsigned long long* clen,           //ciphertext
                         const unsigned char* m, unsigned long long mlen,      //message
                         const unsigned char* ad, unsigned long long adlen,    //additional data
                         const unsigned char* nsec, const unsigned char* npub, //seconds or nonce as session freshness check
@@ -110,7 +110,7 @@ int crypto_aead_encrypt(unsigned char* c, unsigned long long* clen,           //
   return 0;
 }
 
-void ascon_encrypt(unsigned char c[],unsigned char m[], unsigned char k[], int rounds){
+void ascon128_encrypt(unsigned char c[],unsigned char m[], unsigned char k[], int rounds){
     if(rounds<=0 || rounds>3){
     printf("Error in ASCON rounds parameter (rounds=%d). It should be >0 and <=3\n",rounds);
     exit(-1);
@@ -123,7 +123,7 @@ void ascon_encrypt(unsigned char c[],unsigned char m[], unsigned char k[], int r
   unsigned char authenticatedCipher[64+CRYPTO_ABYTES];
   unsigned long long clen[1]; //this is set by the function call
   unsigned long long mlen= 8; //8byte = 64bit message
-  crypto_aead_encrypt(authenticatedCipher, clen, m, mlen, ad, adlen, nsec, npub, k, rounds);
+  crypto128_aead_encrypt(authenticatedCipher, clen, m, mlen, ad, adlen, nsec, npub, k, rounds);
   for(int i=0; i<8; i++){
     c[i]= authenticatedCipher[i];
   }
@@ -136,7 +136,7 @@ int main(){
   unsigned char m[8]= {1,2,3,4,5,6,7,8}; //64bit message
   unsigned char k[16]= {1,2,1,1,8,1,9,4,2,0,2,0,7,6,8,5};
   int rounds= 1;
-  ascon_encrypt(c, m, k, rounds);
+  ascon128_encrypt(c, m, k, rounds);
 
   printf("c[8]= {");
   for(i=0; i<8; i++){
