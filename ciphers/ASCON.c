@@ -1,4 +1,4 @@
-/*Taken from https://csrc.nist.gov/projects/lightweight-cryptography/round-2-candidates
+/*Taken from https://csrc.nist.gov/projects/lightweight-cryptography/round-2-candidates zip source code ascon.zip/Implementations/crypto_aead/ascon128v12/opt64
 Original code by: 
 Christoph Dobraunig
 Martin Schläffer*/
