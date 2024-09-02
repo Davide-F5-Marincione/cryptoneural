@@ -43,3 +43,24 @@ lib.aes_encrypt(plaintext, ciphertext, key, SIZE_16, effectiveRounds)  # The las
 
 # Print the ciphertext in HEX format
 print(f"Result of aes_encrypt({bytes(plaintext).decode('utf-8', errors='replace')}, ciphertext variable, {bytes(key).decode('utf-8', errors='replace')}, {SIZE_16}, {effectiveRounds})= 0x"+"".join(f"{b:02x}" for b in ciphertext))
+
+
+
+# --------------------------------------------------------------------------------------- ASCON
+# Define the function prototype for ascon_encrypt
+lib.ascon_encrypt.restype = None  # Assuming the function returns void
+lib.ascon_encrypt.argtypes = [ctypes.POINTER(ctypes.c_ubyte), ctypes.POINTER(ctypes.c_ubyte), ctypes.POINTER(ctypes.c_ubyte), ctypes.c_int]
+
+# ASCON test
+c = (ctypes.c_ubyte * 8)()  # Output buffer (unsigned char c[8])
+m = (ctypes.c_ubyte * 8)(1, 2, 3, 4, 5, 6, 7, 8)  # Input message (unsigned char m[8])
+k = (ctypes.c_ubyte * 16)(1, 2, 1, 1, 8, 1, 9, 4, 2, 0, 2, 0, 7, 6, 8, 5)  # Key (unsigned char k[16])
+rounds= 2
+# Call the function
+lib.ascon_encrypt(c, m, k, rounds)
+
+# Print the result in the same format as the C code
+print("c[8]= {", end="")
+for i in range(8):
+    print(f"{c[i]} ", end="")
+print("}")
