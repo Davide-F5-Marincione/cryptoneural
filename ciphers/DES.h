@@ -1,5 +1,5 @@
-#ifndef AES_GUARD_H
-# define AES_GUARD_H
+#ifndef DES_GUARD_H
+# define DES_GUARD_H
 
 #include <stdint.h>
 
