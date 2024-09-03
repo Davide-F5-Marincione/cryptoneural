@@ -41,4 +41,4 @@ We ended up with the initial idea as formulated at the beginning. We should try 
 
 ### Test results
 
-Not already tested.
+It make things worse. Idea tested and not implemented.
