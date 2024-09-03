@@ -125,7 +125,42 @@ class AES:
         res = []
         for v in i:
             plaintext = (ctypes.c_ubyte * 16)(*v) 
+            print(*plaintext)
+            print(*self.key)
             self.lib.aes_encrypt(plaintext, ciphertext, self.key, self.key_size, self.rounds)
+            res.append(ciphertext)
+
+        return np.asarray(res, dtype=np.uint8)
+    
+class ASCON:
+    def __init__(self, rounds, seed=42, nbytes=8):
+        if nbytes != 8:
+            raise ValueError("ASCON only works with 128 bits")
+        
+        self.rounds = rounds
+        self.nbytes = nbytes
+        np.random.seed(seed)
+        self.key = (ctypes.c_ubyte * 16)(*np.random.randint(0, 256, size=16, dtype=np.uint8))
+
+        # Load the compiled shared library
+        if os.name == "nt":
+            # Windows
+            self.lib = ctypes.CDLL('./encrypt.dll')
+        else:
+            # Linux/MacOS
+            self.lib = ctypes.CDLL('./encrypt.so')
+
+
+        # Define the function prototype for aes_encrypt
+        self.lib.ascon128_encrypt.argtypes = (ctypes.POINTER(ctypes.c_ubyte), ctypes.POINTER(ctypes.c_ubyte), ctypes.POINTER(ctypes.c_ubyte), ctypes.c_int)
+        self.lib.ascon128_encrypt.restype = None
+
+    def sample(self, i):
+        ciphertext = (ctypes.c_ubyte * 8)()
+        res = []
+        for v in i:
+            plaintext = (ctypes.c_ubyte * 8)(*v) 
+            self.lib.ascon128_encrypt(ciphertext, plaintext, self.key, self.rounds)
             res.append(ciphertext)
 
         return np.asarray(res, dtype=np.uint8)
@@ -148,4 +183,7 @@ if __name__ == "__main__":
     print(des.sample(np.array([[1,0,0,0,0,0,0,0]], dtype=np.uint8)))
 
     aes = AES(2)
-    print(aes.sample(np.array([[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]], dtype=np.uint8)))
+    print(aes.sample(np.array([[1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16]], dtype=np.uint8)))
+
+    ascon = ASCON(2)
+    print(ascon.sample(np.array([[1,2,3,4,5,6,7,8]], dtype=np.uint8)))

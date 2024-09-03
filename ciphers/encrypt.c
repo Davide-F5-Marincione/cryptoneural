@@ -2,7 +2,7 @@
  *Linux/Mac
  *gcc -shared -o encrypt.so -fPIC encrypt.c DES.c AES.c ASCON.c
  *Windows MinGW
- *gcc -shared -o miofile.dll -Wl,--out-implib,libmiofile.a miofile.c DES.c ASCON.c
+ *gcc -shared -o encrypt.dll -Wl,--out-implib,libencrypt.a encrypt.c DES.c AES.c ASCON.c
 */
 #include <stdio.h>
 #include <stdlib.h>
