@@ -117,5 +117,13 @@ typedef struct {
     ROUND(0x78); \
   } while (0)
 
+#define P4()     \
+  do {           \
+    ROUND(0x96); \
+    ROUND(0x87); \
+    ROUND(0x78); \
+    ROUND(0x69); \
+  } while (0)
+
 #endif  // PERMUTATIONS_H_
 

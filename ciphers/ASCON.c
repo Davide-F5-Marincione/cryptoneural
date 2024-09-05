@@ -20,7 +20,7 @@ Martin Schläffer*/
   ((u64)(8 * (CRYPTO_KEYBYTES)) << 56 | (u64)(8 * (RATE)) << 48 | \
    (u64)(PA_ROUNDS) << 40 | (u64)(PB_ROUNDS) << 32)
 
-#define P()             \
+#define Pr()            \
   if (rounds==1){       \
     P1();               \
   }                     \
@@ -30,10 +30,31 @@ Martin Schläffer*/
   else if (rounds==3){  \
     P3();               \
   }                     \
+  else if (rounds==4){  \
+    P4();               \
+  }                     \
   else{                 \
     printf("ASCON error. Selected to many rounds\n");  \
     exit(-1);           \
-  }             
+  }      
+
+#define P2r()           \
+  if (rounds==1){       \
+    P2();               \
+  }                     \
+  else if(rounds==2){   \
+    P4();               \
+  }                     \
+  else if (rounds==3){  \
+    P6();               \
+  }                     \
+  else if (rounds==4){  \
+    P8();               \
+  }                     \
+  else{                 \
+    printf("ASCON error. Selected to many rounds\n");  \
+    exit(-1);           \
+  }           
 
 
 int crypto128_aead_encrypt(unsigned char* c, unsigned long long* clen,           //ciphertext
@@ -59,7 +80,7 @@ int crypto128_aead_encrypt(unsigned char* c, unsigned long long* clen,          
   s.x3 = N0;
   s.x4 = N1;
   //P12();
-  P()
+  P2r()
   s.x3 ^= K0;
   s.x4 ^= K1;
 
@@ -68,14 +89,14 @@ int crypto128_aead_encrypt(unsigned char* c, unsigned long long* clen,          
     while (adlen >= RATE) {
       s.x0 ^= U64BIG(*(u64*)ad);
       //P6();
-      P()
+      Pr()
       adlen -= RATE;
       ad += RATE;
     }
     for (i = 0; i < adlen; ++i, ++ad) s.x0 ^= INS_BYTE64(*ad, i);
     s.x0 ^= INS_BYTE64(0x80, adlen);
     //P6();
-    P()
+    Pr()
   }
   s.x4 ^= 1;
 
@@ -84,7 +105,7 @@ int crypto128_aead_encrypt(unsigned char* c, unsigned long long* clen,          
     s.x0 ^= U64BIG(*(u64*)m);
     *(u64*)c = U64BIG(s.x0);
     //P6();
-    P()
+    Pr()
     mlen -= RATE;
     m += RATE;
     c += RATE;
@@ -99,7 +120,7 @@ int crypto128_aead_encrypt(unsigned char* c, unsigned long long* clen,          
   s.x1 ^= K0;
   s.x2 ^= K1;
   //P12();
-  P()
+  P2r()
   s.x3 ^= K0;
   s.x4 ^= K1;
 
