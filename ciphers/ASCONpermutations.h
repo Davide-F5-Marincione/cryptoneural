@@ -125,5 +125,28 @@ typedef struct {
     ROUND(0x69); \
   } while (0)
 
+#define P5()     \
+  do {           \
+    ROUND(0x96); \
+    ROUND(0x87); \
+    ROUND(0x78); \
+    ROUND(0x69); \
+    ROUND(0x5a); \
+  } while (0)
+
+#define P10()    \
+  do {           \
+    ROUND(0xf0); \
+    ROUND(0xe1); \
+    ROUND(0xd2); \
+    ROUND(0xc3); \
+    ROUND(0xb4); \
+    ROUND(0xa5); \
+    ROUND(0x96); \
+    ROUND(0x87); \
+    ROUND(0x78); \
+    ROUND(0x69); \
+  } while (0)
+
 #endif  // PERMUTATIONS_H_
 

@@ -33,8 +33,14 @@ Martin Schläffer*/
   else if (rounds==4){  \
     P4();               \
   }                     \
+  else if (rounds==5){  \
+    P5();               \
+  }                     \
+  else if (rounds==6){  \
+    P6();               \
+  }                     \
   else{                 \
-    printf("ASCON error. Selected to many rounds\n");  \
+    printf("ASCON error. Selected a wrong number of rounds\n");  \
     exit(-1);           \
   }      
 
@@ -51,8 +57,14 @@ Martin Schläffer*/
   else if (rounds==4){  \
     P8();               \
   }                     \
+  else if (rounds==5){  \
+    P10();              \
+  }                     \
+  else if (rounds==6){  \
+    P12();              \
+  }                     \
   else{                 \
-    printf("ASCON error. Selected to many rounds\n");  \
+    printf("ASCON error. Selected a wrong number of rounds\n");  \
     exit(-1);           \
   }           
 
@@ -132,8 +144,8 @@ int crypto128_aead_encrypt(unsigned char* c, unsigned long long* clen,          
 }
 
 void ascon128_encrypt(unsigned char c[],unsigned char m[], unsigned char k[], int rounds){
-    if(rounds<=0 || rounds>3){
-    printf("Error in ASCON rounds parameter (rounds=%d). It should be >0 and <=3\n",rounds);
+    if(rounds<=0 || rounds>6){
+    printf("Error in ASCON rounds parameter (rounds=%d). It should be >0 and <=6\n",rounds);
     exit(-1);
   }
   const unsigned char* nsec= NULL;
