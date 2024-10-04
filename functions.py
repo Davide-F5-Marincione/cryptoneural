@@ -2,6 +2,44 @@ import numpy as np
 import ctypes
 import os
 
+
+class SmallCrypto:
+    def __init__(self, rounds, seed=42, nbytes=4):
+        self.s_box = np.asarray([1,13,15,0,14,8,2,11,7,4,12,10,9,3,5,6], dtype=np.uint8)
+        
+        np.random.seed(seed)
+
+        self.rounds = rounds
+        self.nbytes = nbytes
+
+        self.shifts = np.asarray([(nbytes - i - 1) * 8 for i in range(nbytes)], dtype=np.uint8)[None]
+        self.seeds = np.random.randint(0, 256, size=(1, nbytes), dtype=np.uint8)
+
+        perm_list = np.random.permutation(nbytes * 8)
+        self.permutation_matrix = np.zeros((nbytes * 8,nbytes * 8), dtype=np.uint8)
+
+        for i in range(nbytes * 8):
+            self.permutation_matrix[i, perm_list[i]] = 1
+
+    def round(self, i):
+        #S-BOX
+        i = np.bitwise_xor(i, self.seeds)
+        i = np.repeat(i, 2, 1)
+        i[:, ::2] = np.right_shift(i[:, ::2], 4)
+        i[:, 1::2] = np.bitwise_and(i[:, 1::2], 0x0F)
+        res = self.s_box[i]
+        res = np.bitwise_xor(np.left_shift(res[:, ::2], 4), res[:, 1::2])
+
+        #P-BOX
+        bits = np.unpackbits(res).reshape(i.shape[0], self.nbytes*8) @ self.permutation_matrix
+        y = np.packbits(bits).reshape(i.shape[0], self.nbytes)
+        return y
+    
+    def sample(self, i):
+        for _ in range(self.rounds):
+            i = self.round(i)
+        return i
+
 class BasicCrypto:
     def __init__(self, rounds, seed=42, nbytes=4):
         self.s_box = np.asarray([
@@ -168,6 +206,15 @@ class ASCON:
 
 if __name__ == "__main__":
     # Example usage
+
+    toy = SmallCrypto(2, nbytes=4)
+    print(toy.sample(np.array([[1,0,0,0]], dtype=np.uint8)))
+
+    toy = SmallCrypto(2, nbytes=8)
+    print(toy.sample(np.array([[1,0,0,0,0,0,0,0]], dtype=np.uint8)))
+
+    toy = SmallCrypto(2, nbytes=16)
+    print(toy.sample(np.array([[1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0]], dtype=np.uint8)))
 
     toy = BasicCrypto(2, nbytes=4)
     print(toy.sample(np.array([[1,0,0,0]], dtype=np.uint8)))
